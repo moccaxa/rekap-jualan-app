@@ -1,0 +1,36 @@
+{
+  "name": "rekap-jualan",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "dev:netlify": "npx netlify-cli dev",
+    "hash-password": "node scripts/hash-password.mjs",
+    "gen-secrets": "node scripts/gen-secrets.mjs",
+    "test": "tsx tests/core.test.mts && tsx tests/csv.test.mts && tsx tests/backend.test.mts && tsx tests/sheets.test.mts && tsx tests/telegram.test.mts && tsx tests/buyers.test.mts",
+    "test:e2e": "npm run build && tsx tests/e2e/ui.test.mts"
+  },
+  "dependencies": {
+    "lucide-react": "^0.453.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "recharts": "^2.13.0",
+    "@netlify/blobs": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.9",
+    "@types/node": "^20.16.0",
+    "tsx": "^4.19.0"
+  }
+}
