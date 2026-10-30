@@ -35,7 +35,7 @@ export default wrap(async req => {
     for (const [i, it] of items.entries()) {
       const id = typeof it.id === 'string' && /^[\w-]{3,40}$/.test(it.id) && !ids.has(it.id) ? it.id : genId();
       const { buyer, created: c } = resolveBuyer(bl, it, now, gen); if (c) { bl.push(c); created.push(c); }
-      const r = validateStored({ ...it, id, buyerId: buyer.id, buyerName: buyer.name, whatsapp: buyer.whatsapp, accountPasswordEnc: pwEnc(it, ''), createdAt: now, updatedAt: now, version: 1, deletedAt: undefined });
+      const r = validateStored({ ...it, id, buyerId: buyer.id, buyerName: buyer.name, whatsapp: buyer.whatsapp, telegram: buyer.telegram, accountPasswordEnc: pwEnc(it, ''), createdAt: now, updatedAt: now, version: 1, deletedAt: undefined });
       if (!r.ok) throw new HttpError(422, `Baris ${i + 1}: ${r.error}`);
       ids.add(id); added.push(r.v);
     }
@@ -51,7 +51,7 @@ export default wrap(async req => {
     if (cur && input.baseVersion !== cur.version) throw new HttpError(409, 'Transaksi ini sudah diubah dari perangkat lain atau Google Sheets. Muat ulang lalu coba lagi.');
     if (!cur && input.baseVersion !== undefined) throw new HttpError(404, 'Transaksi tidak ditemukan');
     const { buyer, created } = resolveBuyer(buyers, input, now, makeIdGen(buyers));
-    const r = validateStored({ ...input, buyerId: buyer.id, buyerName: buyer.name, whatsapp: buyer.whatsapp, accountPasswordEnc: pwEnc(input, cur?.accountPasswordEnc ?? ''), createdAt: cur?.createdAt ?? now, updatedAt: now, version: cur ? cur.version + 1 : 1, deletedAt: undefined });
+    const r = validateStored({ ...input, buyerId: buyer.id, buyerName: buyer.name, whatsapp: buyer.whatsapp, telegram: buyer.telegram, accountPasswordEnc: pwEnc(input, cur?.accountPasswordEnc ?? ''), createdAt: cur?.createdAt ?? now, updatedAt: now, version: cur ? cur.version + 1 : 1, deletedAt: undefined });
     if (!r.ok) throw new HttpError(422, r.error);
     if (created) await db.setBuyers([created, ...buyers]);
     await db.setTx(cur ? all.map(t => (t.id === r.v.id ? r.v : t)) : [r.v, ...all]);

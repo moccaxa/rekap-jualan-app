@@ -4,9 +4,9 @@ import { DEFAULT_OFFSETS } from '../../shared/reminders';
 import { getStatus } from '../../shared/status';
 import { PLANS, type Plan, type Transaction } from '../../shared/types';
 import { newId } from './id';
-import { normalizePhone } from './phone';
+import { buyerLabel, parseContact } from '../../shared/contact';
 
-export const HEADERS = ['ID', 'ID Buyer', 'Nama Buyer', 'WhatsApp', 'Produk', 'Plan', 'Variasi', 'Durasi', 'Kuantitas', 'Tanggal Order', 'Tanggal Mulai', 'Tanggal Habis',
+export const HEADERS = ['ID', 'ID Buyer', 'Buyer', 'WhatsApp', 'Telegram', 'Produk', 'Plan', 'Variasi', 'Durasi', 'Kuantitas', 'Tanggal Order', 'Tanggal Mulai', 'Tanggal Habis', 'Tanggal Reminder',
   'Email Akun', 'Harga Jual', 'Harga Modal', 'Keuntungan', 'FH', 'Catatan', 'Status'];
 
 /** Sel teks berawalan = + - @ diberi tanda ' agar tidak dieksekusi sebagai rumus di Excel/Sheets. */
@@ -17,7 +17,7 @@ export function toCSV(rows: Transaction[], today: string): string {
   const cols = HEADERS;
   const line = (t: Transaction) => {
     const m: Record<string, string> = {
-      'ID': t.id, 'ID Buyer': t.buyerId, 'Nama Buyer': esc(t.buyerName), 'WhatsApp': t.whatsapp, 'Produk': esc(t.product), 'Plan': t.plan, 'Variasi': esc(t.variation),
+      'ID': t.id, 'ID Buyer': t.buyerId, 'Buyer': esc(t.buyerName), 'WhatsApp': t.whatsapp, 'Telegram': t.telegram, 'Tanggal Reminder': (t.reminderDates ?? []).join(';'), 'Produk': esc(t.product), 'Plan': t.plan, 'Variasi': esc(t.variation),
       'Durasi': `${t.durationValue} ${t.durationUnit === 'month' ? 'bulan' : 'hari'}`, 'Kuantitas': String(t.quantity), 'Tanggal Order': t.orderDate,
       'Tanggal Mulai': t.startDate, 'Tanggal Habis': t.expiryDate, 'Email Akun': esc(t.accountEmail),
       'Harga Jual': String(t.sellPrice), 'Harga Modal': String(t.costPrice), 'Keuntungan': String(profitOf(t)), 'FH': esc(t.supplier), 'Catatan': esc(t.notes),
@@ -46,8 +46,8 @@ export function parseCSV(text: string): string[][] {
 }
 
 const num = (s: string) => { const n = Number(s.replace(/[^\d-]/g, '')); return Number.isFinite(n) ? n : 0; };
-const fp = (t: Pick<Transaction, 'buyerName' | 'whatsapp' | 'product' | 'plan' | 'orderDate' | 'expiryDate'>) =>
-  [t.buyerName.toLowerCase(), t.whatsapp, t.product.toLowerCase(), t.plan, t.orderDate, t.expiryDate].join('|');
+const fp = (t: Pick<Transaction, 'whatsapp' | 'telegram' | 'product' | 'plan' | 'orderDate' | 'expiryDate'>) =>
+  [t.whatsapp, t.telegram, t.product.toLowerCase(), t.plan, t.orderDate, t.expiryDate].join('|');
 
 export interface ImportResult { add: Transaction[]; dupes: number; errors: { row: number; msg: string }[]; fatal?: string }
 
@@ -56,7 +56,7 @@ export function importCSV(text: string, existing: Transaction[]): ImportResult {
   const rows = parseCSV(text);
   if (rows.length < 2) return { ...res, fatal: 'File kosong atau tidak memiliki baris data.' };
   const idx = new Map(rows[0].map((h, i) => [h.trim().toLowerCase(), i]));
-  const need = ['Nama Buyer', 'WhatsApp', 'Produk', 'Tanggal Order'].filter(h => !idx.has(h.toLowerCase()));
+  const need = ['Produk', 'Tanggal Order'].filter(h => !idx.has(h.toLowerCase()));
   if (need.length) return { ...res, fatal: `Kolom wajib tidak ditemukan: ${need.join(', ')}` };
   const get = (r: string[], h: string) => unesc((r[idx.get(h.toLowerCase()) ?? -1] ?? '').trim());
   const ids = new Set(existing.map(t => t.id)), prints = new Set(existing.map(fp));
@@ -64,11 +64,10 @@ export function importCSV(text: string, existing: Transaction[]): ImportResult {
 
   rows.slice(1).forEach((r, i) => {
     const row = i + 2, err = (msg: string) => res.errors.push({ row, msg });
-    const buyerName = get(r, 'Nama Buyer'), product = get(r, 'Produk');
-    if (!buyerName) return err('Nama Buyer kosong');
-    if (!product) return err('Produk kosong');
-    const whatsapp = normalizePhone(get(r, 'WhatsApp'));
-    if (!whatsapp) return err('Nomor WhatsApp tidak valid');
+    const product = get(r, 'Produk'); if (!product) return err('Produk kosong');
+    const ct = parseContact({ whatsapp: get(r, 'WhatsApp'), telegram: get(r, 'Telegram') }); if (!ct.ok) return err(ct.error); // kolom Nama tidak dipakai lagi
+    const rdRaw = get(r, 'Tanggal Reminder'), rds = rdRaw ? rdRaw.split(/[;\s]+/).filter(Boolean).map(parseDate) : [];
+    if (rds.some(x => !x)) return err('Tanggal Reminder tidak valid (YYYY-MM-DD, pisahkan dengan titik koma)');
     const planRaw = get(r, 'Plan'); const plan = PLANS.find(p => p.toLowerCase() === planRaw.toLowerCase()) ?? (planRaw ? null : 'Private' as Plan);
     if (!plan) return err(`Plan "${planRaw}" tidak dikenal`);
     const dm = /^(\d+)\s*(bulan|hari)$/i.exec(get(r, 'Durasi'));
@@ -87,10 +86,10 @@ export function importCSV(text: string, existing: Transaction[]): ImportResult {
     if (sellPrice < 0 || costPrice < 0) return err('Harga tidak boleh negatif');
 
     const t: Transaction = {
-      id: '', buyerId: get(r, 'ID Buyer'), buyerName, whatsapp, product, plan, variation: get(r, 'Variasi'), durationValue, durationUnit, orderDate, startDate, expiryDate,
+      id: '', buyerId: get(r, 'ID Buyer'), buyerName: buyerLabel(ct), whatsapp: ct.whatsapp, telegram: ct.telegram, product, plan, variation: get(r, 'Variasi'), durationValue, durationUnit, orderDate, startDate, expiryDate,
       expiryManual: expiryDate !== auto, accountEmail: get(r, 'Email Akun'), accountPassword: get(r, 'Password Akun') || undefined, sellPrice, costPrice, quantity,
       supplier: get(r, 'FH'), notes: get(r, 'Catatan'), cancelled: get(r, 'Status').toLowerCase() === 'dibatalkan', reminderEnabled: true,
-      reminderOffsets: DEFAULT_OFFSETS, followedUp: false, createdAt: now, updatedAt: now, version: 1,
+      reminderOffsets: DEFAULT_OFFSETS, reminderDates: rds as string[], followedUp: false, createdAt: now, updatedAt: now, version: 1,
     };
     const id = get(r, 'ID');
     if ((id && ids.has(id)) || prints.has(fp(t))) { res.dupes++; return; }

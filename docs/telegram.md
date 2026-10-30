@@ -34,6 +34,7 @@ Batasan Netlify Scheduled Functions (periksa dokumentasi Netlify terbaru karena 
 **Alternatif / cadangan: scheduler eksternal.** Isi `CRON_SECRET` (acak, minimal 24 karakter) di Netlify, lalu buat job di cron-job.org atau GitHub Actions yang memanggil `POST https://NAMA-SITUS.netlify.app/api/reminder-trigger` tiap jam dengan header `X-Cron-Secret: <nilai CRON_SECRET>`. Tanpa `CRON_SECRET` endpoint ini mati (404). Aman dipakai bersamaan dengan scheduler Netlify; pesan yang sama tidak akan terkirim dua kali.
 
 ## Aturan pengiriman
-- Pesan dikirim bila: Telegram diaktifkan, reminder transaksi aktif, transaksi tidak dibatalkan/dihapus, **dan** offset (mis. H-7) ada di daftar offset transaksi **serta** di daftar offset global Telegram.
+- **Tanggal reminder khusus** (dipilih di form transaksi/halaman Reminder) selalu dikirim pada tanggalnya, tanpa melihat daftar offset global. Satu pesan per transaksi per hari.
+- Pesan jadwal H-n dikirim bila: Telegram diaktifkan, reminder transaksi aktif, transaksi tidak dibatalkan/dihapus, **dan** offset (mis. H-7) ada di daftar offset transaksi **serta** di daftar offset global Telegram.
 - Satu jadwal (`ID|offset|tanggal`) hanya dikirim sekali. Gagal dari sisi Telegram dicoba ulang tiap jam maksimal 3 kali. Bila proses terhenti tepat saat mengirim (hasil tidak diketahui), pesan **tidak** dikirim ulang otomatis; riwayat menandainya agar Anda cek manual.
 - Password dan email akun tidak pernah dimasukkan ke pesan.

@@ -1,5 +1,5 @@
 import { addDays, addMonths } from './dates';
-import { normalizePhone } from './phone';
+import { buyerLabel, parseContact } from './contact';
 import type { Buyer, BuyerStatus, Transaction } from './types';
 
 /* Seluruh statistik buyer dihitung di sini dari transaksi. Tidak ada angka total yang disimpan sebagai data mandiri. */
@@ -72,18 +72,21 @@ export function analytics(stats: BuyerStat[], range: Range): Analytics {
 }
 
 // ---------- konsistensi buyer <-> transaksi (dipakai server) ----------
-type Linked = { buyerId: string; buyerName: string; whatsapp: string; version: number; updatedAt: string };
+type Linked = { buyerId: string; buyerName: string; whatsapp: string; telegram: string; version: number; updatedAt: string };
 const bump = <T extends { version: number; updatedAt: string }>(x: T, now: string): T => ({ ...x, updatedAt: now, version: x.version + 1 });
+/** Pencocokan identitas: nomor WhatsApp didahulukan, lalu username Telegram (keduanya hanya bila terisi). */
+export function findByContact<T extends { whatsapp: string; telegram: string }>(list: T[], c: { whatsapp: string; telegram: string }, pred: (x: T) => boolean = () => true): T | undefined {
+  return (c.whatsapp ? list.find(x => pred(x) && x.whatsapp === c.whatsapp) : undefined) ?? (c.telegram ? list.find(x => pred(x) && x.telegram === c.telegram) : undefined);
+}
 
-/** Transaksi tanpa buyer valid (data lama / baris baru dari Sheets/CSV) dihubungkan ke buyer dengan nomor WhatsApp yang sama, atau dibuatkan buyer baru. */
+/** Transaksi tanpa buyer valid (data lama / baris baru dari Sheets/CSV) dihubungkan ke buyer dengan kontak yang sama, atau dibuatkan buyer baru. */
 export function ensureBuyerLinks<T extends Linked>(txs: T[], buyers: Buyer[], now: string, genId: () => string) {
-  const byId = new Map(buyers.map(b => [b.id, b])), byPhone = new Map<string, Buyer>(), out = [...buyers]; let changed = false;
-  for (const b of buyers) if (!b.deletedAt) byPhone.set(b.whatsapp, byPhone.get(b.whatsapp) ?? b);
-  for (const b of buyers) if (b.deletedAt && !byPhone.has(b.whatsapp)) byPhone.set(b.whatsapp, b);
+  const byId = new Map(buyers.map(b => [b.id, b])), out = [...buyers]; let changed = false;
+  const live = () => out.filter(b => !b.deletedAt);
   const nt = txs.map(t => {
     if (t.buyerId && byId.has(t.buyerId)) return t;
-    let b = byPhone.get(t.whatsapp);
-    if (!b) { b = { id: genId(), name: t.buyerName, whatsapp: t.whatsapp, notes: '', createdAt: now, updatedAt: now, version: 1 }; out.push(b); byPhone.set(b.whatsapp, b); byId.set(b.id, b); }
+    let b = findByContact(live(), t) ?? findByContact(out, t);
+    if (!b) { const c = { whatsapp: t.whatsapp, telegram: t.telegram }; b = { id: genId(), name: buyerLabel(c), ...c, notes: '', createdAt: now, updatedAt: now, version: 1 }; out.push(b); byId.set(b.id, b); }
     changed = true; return bump({ ...t, buyerId: b.id }, now);
   });
   return { txs: changed ? nt : txs, buyers: out, changed };
@@ -94,39 +97,58 @@ export function reviveReferenced(buyers: Buyer[], txs: (Linked & { deletedAt?: s
   if (!buyers.some(b => b.deletedAt && used.has(b.id))) return buyers;
   return buyers.map(b => { if (!(b.deletedAt && used.has(b.id))) return b; const { deletedAt, ...rest } = b; void deletedAt; return bump(rest, now); });
 }
-/** Menyelaraskan salinan nama/nomor pada transaksi dengan data buyer (buyer = sumber kebenaran). */
+/** Menyelaraskan salinan label/kontak pada transaksi dengan data buyer (buyer = sumber kebenaran). */
 export function syncSnapshots<T extends Linked>(txs: T[], buyers: Buyer[], now: string): T[] {
   const by = new Map(buyers.map(b => [b.id, b])); let changed = false;
-  const out = txs.map(t => { const b = by.get(t.buyerId); if (!b || (t.buyerName === b.name && t.whatsapp === b.whatsapp)) return t; changed = true; return bump({ ...t, buyerName: b.name, whatsapp: b.whatsapp }, now); });
+  const out = txs.map(t => { const b = by.get(t.buyerId); if (!b || (t.buyerName === b.name && t.whatsapp === b.whatsapp && t.telegram === b.telegram)) return t; changed = true; return bump({ ...t, buyerName: b.name, whatsapp: b.whatsapp, telegram: b.telegram }, now); });
   return changed ? out : txs;
 }
-/** Buyer aktif dengan nomor sama digabung ke yang paling lama; transaksi dialihkan. */
-export function dedupeByPhone<T extends Linked>(buyers: Buyer[], txs: T[], now: string) {
-  const groups = new Map<string, Buyer[]>();
-  for (const b of buyers) if (!b.deletedAt) (groups.get(b.whatsapp) ?? groups.set(b.whatsapp, []).get(b.whatsapp)!).push(b);
-  const redirect = new Map<string, Buyer>(), gone = new Set<string>(), notes = new Map<string, string[]>(); let merged = 0;
-  for (const g of groups.values()) {
-    if (g.length < 2) continue;
-    const [keep, ...rest] = [...g].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
-    for (const r of rest) { redirect.set(r.id, keep); gone.add(r.id); merged++; if (r.notes && r.notes !== keep.notes) notes.set(keep.id, [...(notes.get(keep.id) ?? []), r.notes]); }
+/** Buyer aktif yang berbagi nomor WhatsApp atau username Telegram digabung ke yang paling lama; transaksi dialihkan. */
+export function dedupeByContact<T extends Linked>(buyers: Buyer[], txs: T[], now: string) {
+  let bs = buyers, ts = txs, merged = 0;
+  for (const key of ['whatsapp', 'telegram'] as const) {
+    const groups = new Map<string, Buyer[]>();
+    for (const b of bs) if (!b.deletedAt && b[key]) (groups.get(b[key]) ?? groups.set(b[key], []).get(b[key])!).push(b);
+    const redirect = new Map<string, Buyer>(), gone = new Set<string>(), notes = new Map<string, string[]>(), fill = new Map<string, Partial<Buyer>>();
+    for (const g of groups.values()) {
+      if (g.length < 2) continue;
+      const [keep, ...rest] = [...g].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+      for (const r of rest) {
+        redirect.set(r.id, keep); gone.add(r.id); merged++;
+        if (r.notes && r.notes !== keep.notes) notes.set(keep.id, [...(notes.get(keep.id) ?? []), r.notes]);
+        const f = fill.get(keep.id) ?? {}; if (!keep.whatsapp && r.whatsapp && !f.whatsapp) f.whatsapp = r.whatsapp; if (!keep.telegram && r.telegram && !f.telegram) f.telegram = r.telegram; fill.set(keep.id, f);
+      }
+    }
+    if (!redirect.size) continue;
+    const next = bs.map(b => {
+      if (gone.has(b.id)) return { ...bump(b, now), deletedAt: now };
+      if (!notes.has(b.id) && !Object.keys(fill.get(b.id) ?? {}).length) return b;
+      const m = { ...b, ...fill.get(b.id), notes: [b.notes, ...(notes.get(b.id) ?? [])].filter(Boolean).join('\n') }; return bump({ ...m, name: buyerLabel(m) }, now);
+    });
+    const byId = new Map(next.map(b => [b.id, b]));
+    ts = ts.map(t => { const k = redirect.get(t.buyerId); if (!k) return t; const nb = byId.get(k.id)!; return bump({ ...t, buyerId: nb.id, buyerName: nb.name, whatsapp: nb.whatsapp, telegram: nb.telegram }, now); });
+    bs = next;
   }
-  if (!merged) return { buyers, txs, merged };
-  return {
-    merged,
-    buyers: buyers.map(b => gone.has(b.id) ? { ...bump(b, now), deletedAt: now } : notes.has(b.id) ? bump({ ...b, notes: [b.notes, ...notes.get(b.id)!].filter(Boolean).join('\n') }, now) : b),
-    txs: txs.map(t => { const k = redirect.get(t.buyerId); return k ? bump({ ...t, buyerId: k.id, buyerName: k.name, whatsapp: k.whatsapp }, now) : t; }),
-  };
+  return { buyers: bs, txs: ts, merged };
+}
+/** Migrasi satu kali: nama lama (isian pengguna) dipindahkan ke catatan; nama menjadi label otomatis dari kontak. */
+export function applyLegacyNames(buyers: Buyer[], now: string): Buyer[] {
+  return buyers.map(b => {
+    const label = buyerLabel(b); if (b.name === label || !label) return b;
+    const note = b.name && !b.notes.includes(b.name) ? [`Nama lama: ${b.name}`, b.notes].filter(Boolean).join('\n') : b.notes;
+    return bump({ ...b, name: label, notes: note }, now);
+  });
 }
 
 export type BuyerValidation = { ok: true; v: Buyer } | { ok: false; error: string };
+/** Nama tidak diisi pengguna: dihitung dari kontak. Minimal salah satu: WhatsApp atau Telegram. */
 export function validateBuyer(x: unknown): BuyerValidation {
   const bad = (error: string): BuyerValidation => ({ ok: false, error });
   if (!x || typeof x !== 'object') return bad('Data buyer tidak valid');
   const o = x as Record<string, unknown>, s = (k: string) => (typeof o[k] === 'string' ? (o[k] as string).trim() : '');
   if (!/^[\w-]{3,40}$/.test(s('id'))) return bad('ID buyer tidak valid');
-  if (!s('name') || s('name').length > 120) return bad('Nama buyer wajib diisi (maks 120 karakter)');
-  const whatsapp = normalizePhone(s('whatsapp')); if (!whatsapp) return bad('Nomor WhatsApp tidak valid');
+  const c = parseContact(o); if (!c.ok) return bad(c.error);
   if (typeof o.notes === 'string' && o.notes.length > 2000) return bad('Catatan terlalu panjang');
   if (!s('createdAt') || !s('updatedAt') || !Number.isInteger(o.version) || (o.version as number) < 1) return bad('Metadata buyer tidak valid');
-  return { ok: true, v: { id: s('id'), name: s('name'), whatsapp, notes: typeof o.notes === 'string' ? o.notes.trim() : '', createdAt: s('createdAt'), updatedAt: s('updatedAt'), version: o.version as number, ...(s('deletedAt') ? { deletedAt: s('deletedAt') } : {}) } };
+  return { ok: true, v: { id: s('id'), name: buyerLabel(c), whatsapp: c.whatsapp, telegram: c.telegram, notes: typeof o.notes === 'string' ? o.notes.trim() : '', createdAt: s('createdAt'), updatedAt: s('updatedAt'), version: o.version as number, ...(s('deletedAt') ? { deletedAt: s('deletedAt') } : {}) } };
 }

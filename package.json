@@ -10,7 +10,7 @@
     "dev:netlify": "npx netlify-cli dev",
     "hash-password": "node scripts/hash-password.mjs",
     "gen-secrets": "node scripts/gen-secrets.mjs",
-    "test": "tsx tests/core.test.mts && tsx tests/csv.test.mts && tsx tests/backend.test.mts && tsx tests/sheets.test.mts && tsx tests/telegram.test.mts && tsx tests/buyers.test.mts",
+    "test": "tsx tests/core.test.mts && tsx tests/csv.test.mts && tsx tests/backend.test.mts && tsx tests/sheets.test.mts && tsx tests/telegram.test.mts && tsx tests/buyers.test.mts && tsx tests/catalog.test.mts",
     "test:e2e": "npm run build && tsx tests/e2e/ui.test.mts"
   },
   "dependencies": {

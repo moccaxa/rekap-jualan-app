@@ -25,7 +25,9 @@ export function validateStored(x: unknown): Validated {
   const id = str('id', 40, true); if (id === null || !/^[\w-]{3,40}$/.test(id)) return bad('ID transaksi tidak valid');
   const buyerId = str('buyerId', 40, true); if (buyerId === null || !/^[\w-]{3,40}$/.test(buyerId)) return bad('ID buyer tidak valid');
   const buyerName = str('buyerName', 120, true); if (buyerName === null) return bad('Nama buyer wajib diisi');
-  const whatsapp = str('whatsapp', 20, true); if (whatsapp === null || !/^\d{8,15}$/.test(whatsapp)) return bad('Nomor WhatsApp tidak valid');
+  const whatsapp = str('whatsapp', 20); if (whatsapp === null || (whatsapp !== '' && !/^\d{8,15}$/.test(whatsapp))) return bad('Nomor WhatsApp tidak valid');
+  const telegram = str('telegram', 40); if (telegram === null || (telegram !== '' && !/^[a-z0-9_]{5,32}$/.test(telegram))) return bad('Username Telegram tidak valid');
+  if (!whatsapp && !telegram) return bad('Isi nomor WhatsApp atau username Telegram');
   const product = str('product', 120, true); if (product === null) return bad('Produk wajib diisi');
   if (!PLANS.includes(o.plan as Plan)) return bad('Plan tidak valid');
   const variation = str('variation', 120); if (variation === null) return bad('Variasi terlalu panjang');
@@ -46,13 +48,15 @@ export function validateStored(x: unknown): Validated {
   if (expiryManual === null || cancelled === null || reminderEnabled === null || followedUp === null) return bad('Field boolean tidak valid');
   const offs = o.reminderOffsets;
   if (!Array.isArray(offs) || offs.length > 20 || !offs.every(n => Number.isInteger(n) && n >= 0 && n <= 3650)) return bad('Jadwal reminder tidak valid');
+  const rd = o.reminderDates === undefined || o.reminderDates === null ? [] : o.reminderDates;
+  if (!Array.isArray(rd) || rd.length > 20 || !rd.every(d => typeof d === 'string' && isValidDate(d))) return bad('Tanggal reminder tidak valid');
   const createdAt = str('createdAt', 40, true), updatedAt = str('updatedAt', 40, true);
   if (createdAt === null || updatedAt === null) return bad('Timestamp tidak valid');
   const version = int('version', 1, 1e9); if (version === null) return bad('Versi tidak valid');
   const deletedAt = o.deletedAt === undefined || o.deletedAt === null || o.deletedAt === '' ? undefined : typeof o.deletedAt === 'string' ? o.deletedAt : null;
   if (deletedAt === null) return bad('deletedAt tidak valid');
-  const v: Stored = { id, buyerId, buyerName, whatsapp, product, plan: o.plan as Plan, variation, durationValue, durationUnit: o.durationUnit, orderDate, startDate, expiryDate, expiryManual,
+  const v: Stored = { id, buyerId, buyerName, whatsapp, telegram, product, plan: o.plan as Plan, variation, durationValue, durationUnit: o.durationUnit, orderDate, startDate, expiryDate, expiryManual,
     accountEmail, accountPasswordEnc, sellPrice, costPrice, quantity, supplier, notes, cancelled, reminderEnabled, reminderOffsets: [...new Set(offs as number[])].sort((a, b) => b - a),
-    followedUp, createdAt, updatedAt, version, ...(deletedAt ? { deletedAt } : {}) };
+    reminderDates: [...new Set(rd as string[])].sort(), followedUp, createdAt, updatedAt, version, ...(deletedAt ? { deletedAt } : {}) };
   return { ok: true, v };
 }

@@ -1,4 +1,4 @@
-import type { AppSettings, BackupInfo, Buyer, ReminderLog, ReminderRunInfo, SyncMeta, TelegramSettings, Transaction } from '../../shared/types';
+import type { AppSettings, BackupInfo, Buyer, Product, ReminderLog, ReminderRunInfo, SyncMeta, TelegramSettings, Transaction } from '../../shared/types';
 
 export class ApiError extends Error { constructor(public status: number, msg: string, public data?: Record<string, any>) { super(msg); } }
 export const errMsg = (e: unknown) => (e instanceof Error ? e.message : 'Terjadi kesalahan');
@@ -29,16 +29,19 @@ export const api = {
   delTx: (id: string) => call('transactions?id=' + encodeURIComponent(id), { method: 'DELETE' }),
   bulk: (items: Transaction[]) => call<{ items: Transaction[]; buyers: Buyer[] }>('transactions?action=bulk', { method: 'POST', body: { items } }),
   listBuyers: async () => (await call<{ items: Buyer[] }>('buyers')).items,
-  createBuyer: (b: { name: string; whatsapp: string; notes: string }) => call<{ item: Buyer }>('buyers', { method: 'POST', body: b }),
+  createBuyer: (b: { whatsapp: string; telegram: string; notes: string }) => call<{ item: Buyer }>('buyers', { method: 'POST', body: b }),
   updateBuyer: (b: Buyer) => call<{ item: Buyer; changed: number }>('buyers', { method: 'PUT', body: { ...b, baseVersion: b.version } }),
   deleteBuyer: (id: string) => call('buyers?id=' + encodeURIComponent(id), { method: 'DELETE' }),
   mergeBuyers: (fromId: string, intoId: string) => call<{ item: Buyer }>('buyers?action=merge', { method: 'POST', body: { fromId, intoId } }),
-  bulkBuyers: (items: { id?: string; name: string; whatsapp: string; notes: string }[]) => call<{ added: number; skipped: number; items: Buyer[] }>('buyers?action=bulk', { method: 'POST', body: { items } }),
+  bulkBuyers: (items: { id?: string; whatsapp: string; telegram: string; notes: string }[]) => call<{ added: number; skipped: number; items: Buyer[] }>('buyers?action=bulk', { method: 'POST', body: { items } }),
   reveal: (id: string) => call<{ password: string }>('transactions?id=' + encodeURIComponent(id)),
   getSettings: async () => (await call<{ settings: AppSettings }>('settings')).settings,
   putSettings: async (s: AppSettings) => (await call<{ settings: AppSettings }>('settings', { method: 'PUT', body: s })).settings,
   getLogs: async () => (await call<{ items: ReminderLog[] }>('reminder-logs')).items,
-  addLog: async (b: { txId: string; offset: number; sendDate: string }) => (await call<{ item: ReminderLog }>('reminder-logs', { method: 'POST', body: b })).item,
+  listProducts: async () => (await call<{ items: Product[] }>('products')).items,
+  saveProduct: (p: Partial<Product> & { name: string }, baseVersion?: number) => call<{ item: Product }>('products', { method: baseVersion ? 'PUT' : 'POST', body: { ...p, baseVersion } }),
+  deleteProduct: (id: string) => call('products?id=' + encodeURIComponent(id), { method: 'DELETE' }),
+  addLog: async (b: { txId: string; offset: number; sendDate: string; kind?: 'date' }) => (await call<{ item: ReminderLog }>('reminder-logs', { method: 'POST', body: b })).item,
   tgStatus: () => call<TgStatus>('telegram'),
   tgSave: (s: TelegramSettings) => call<TgStatus>('telegram', { method: 'PUT', body: s }),
   tgAction: <T = TgStatus>(action: 'connect' | 'detect' | 'test' | 'run' | 'test-reminder', extra: object = {}) => call<T>('telegram', { method: 'POST', body: { action, ...extra } }),

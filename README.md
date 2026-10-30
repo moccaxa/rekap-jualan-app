@@ -33,14 +33,21 @@ Status dihitung saat ditampilkan dari tanggal habis (zona Asia/Jakarta): Aktif, 
 
 ## Data Buyer & ranking
 
-- **Identitas = ID Buyer** (`BY-xxxxxx`), bukan nama. Setiap transaksi menyimpan `buyerId`. Saat mencatat transaksi Anda memilih buyer terdaftar (cari nama/WhatsApp) atau menekan **Buyer baru**; nama dan nomor terisi otomatis.
-- **Tidak ada buyer ganda:** nomor WhatsApp unik per buyer. Menambah buyer dengan nomor yang sudah ada ditolak dengan tawaran memakai buyer yang ada; nama yang sama dengan nomor berbeda hanya diberi peringatan. Transaksi baru dengan nomor yang sudah terdaftar otomatis masuk ke buyer yang sama. Buyer ganda yang sudah terlanjur ada bisa **digabungkan** (transaksi dipindahkan).
-- **Mengubah nama/nomor buyer** otomatis memperbarui salinan nama/nomor pada semua transaksinya (hubungan tetap lewat ID), sehingga CSV, Sheets, dan pesan Telegram selalu memakai data terbaru.
+- **Tidak ada nama buyer.** Identitas buyer = **nomor WhatsApp dan/atau username Telegram** (minimal salah satu). Tabel, ranking, dan pesan Telegram menampilkan nomor WhatsApp, atau `@username` bila tanpa WhatsApp. Data lama yang masih bernama dimigrasi sekali: nama lama dipindahkan ke catatan buyer.
+- **ID Buyer** (`BY-xxxxxx`) adalah identitas utama; setiap transaksi menyimpan `buyerId`. Saat mencatat transaksi Anda memilih buyer terdaftar (cari WhatsApp/@Telegram) atau menekan **Buyer baru**; kontak terisi otomatis.
+- **Tidak ada buyer ganda:** nomor WhatsApp dan username Telegram masing-masing unik per buyer. Menambah buyer dengan kontak yang sudah ada ditolak dengan tawaran memakai buyer yang ada. Transaksi baru dengan kontak yang sudah terdaftar otomatis masuk ke buyer yang sama. Buyer ganda yang sudah terlanjur ada bisa **digabungkan** (transaksi dipindahkan).
+- **Mengubah kontak buyer** otomatis memperbarui salinan label/kontak pada semua transaksinya (hubungan tetap lewat ID), sehingga CSV, Sheets, dan pesan Telegram selalu memakai data terbaru.
 - **Statistik tidak disimpan.** Total order, omzet, modal, untung, tanggal pertama/terakhir, dan status dihitung dari transaksi di satu modul (`shared/buyers.ts`) setiap kali ditampilkan atau ditulis ke Sheets. Menambah/mengedit/membatalkan/menghapus transaksi otomatis mengubah ranking.
 - **Aturan hitung:** jumlah order = ID transaksi unik yang valid (tidak dibatalkan, tidak dihapus). Urutan Top Buyer: order terbanyak, lalu omzet tertinggi, lalu nama. **Repeat buyer** = ≥ 2 transaksi valid dalam periode; persentase repeat = repeat ÷ buyer yang order di periode. **Belum order kembali** = pernah order sebelum periode dimulai tetapi tidak order di periode (periode "Semua waktu": berstatus Tidak Aktif). **Buyer baru pada periode** = order pertamanya jatuh di periode.
 - **Status buyer:** Baru (belum pernah order, atau order pertama ≤ 30 hari lalu), Aktif (order terakhir ≤ 90 hari lalu), Tidak Aktif (selain itu). Batas hari dapat diubah di Pengaturan.
 - **Periode:** Semua waktu, Bulan ini, Bulan lalu, 3 bulan terakhir, Tahun ini, atau rentang khusus; berlaku untuk kartu, ranking, grafik, dan tabel.
 - Data lama (sebelum fitur ini) dimigrasi otomatis: transaksi dikelompokkan per nomor WhatsApp menjadi buyer.
+
+## Katalog produk, plan, dan tanggal reminder
+
+- **Katalog produk** (menu Produk & Durasi): produk dengan harga jual, harga modal (opsional), dan variasi beserta harganya. Di form transaksi pilihan katalog **opsional**: memilih produk/variasi mengisi nama dan harga otomatis, tetapi semua isian tetap bisa diketik manual. Katalog disimpan di server dan ikut backup; katalog belum disinkronkan ke Google Sheets.
+- **Plan:** Private, Sharing, Indplan, Famplan, Member, Designer, **Zoom**.
+- **Tanggal reminder khusus:** di form transaksi dan halaman Reminder Anda dapat memilih satu atau lebih tanggal. Pada tanggal itu server mengirim pesan ke Telegram (setelah jam kirim yang diatur), tanpa melihat daftar offset global, dan tidak bergeser bila tanggal habis diubah. Maksimal satu pesan per transaksi per hari.
 
 ## Struktur proyek
 

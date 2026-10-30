@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, GitMerge, MessageCircle, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, GitMerge, MessageCircle, Pencil, Plus, Send, Trash2 } from 'lucide-react';
+import { contactLine, telegramLink } from '../../shared/contact';
 import BuyerModal from '../components/BuyerModal';
 import PeriodFilter from '../components/PeriodFilter';
 import { BuyerStatusBadge, Empty, Modal, StatusBadge, toast } from '../components/ui';
@@ -32,8 +33,8 @@ export default function BuyerDetail() {
     <div className="space-y-4">
       <Link to="/buyer" className="inline-flex items-center gap-1 text-sm text-brand-600"><ArrowLeft size={14} />Data Buyer</Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><div className="flex flex-wrap items-center gap-2"><h1 className="text-xl font-semibold" data-testid="buyer-name">{buyer.name}</h1><BuyerStatusBadge s={s.status} /></div><div className="text-sm text-slate-600">{buyer.whatsapp} · <span className="font-mono text-xs">{buyer.id}</span></div></div>
-        <div className="flex flex-wrap gap-2"><a className="btn-g" href={waLink(buyer.whatsapp)} target="_blank" rel="noreferrer"><MessageCircle size={16} />WhatsApp</a>
+        <div><div className="flex flex-wrap items-center gap-2"><h1 className="text-xl font-semibold" data-testid="buyer-name">{buyer.name}</h1><BuyerStatusBadge s={s.status} /></div><div className="text-sm text-slate-600">{contactLine(buyer) !== buyer.name && <>{contactLine(buyer)} · </>}<span className="font-mono text-xs">{buyer.id}</span></div></div>
+        <div className="flex flex-wrap gap-2">{buyer.whatsapp && <a className="btn-g" href={waLink(buyer.whatsapp)} target="_blank" rel="noreferrer"><MessageCircle size={16} />WhatsApp</a>}{buyer.telegram && <a className="btn-g" href={telegramLink(buyer.telegram)} target="_blank" rel="noreferrer"><Send size={16} />Telegram</a>}
           <button className="btn-g" onClick={() => setEdit(true)}><Pencil size={16} />Edit</button><Link className="btn-p" to={`/tambah?buyer=${buyer.id}`}><Plus size={16} />Tambah transaksi</Link></div></div>
       <div className="flex flex-wrap items-center gap-2"><span className="text-sm text-slate-500">Periode:</span><PeriodFilter value={pr.period} onChange={pr.setPeriod} /></div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="detail-cards">
@@ -55,7 +56,7 @@ export default function BuyerDetail() {
           <table className="hidden w-full text-left text-sm md:table"><thead className="text-xs text-slate-500"><tr><th className="px-3 py-2">ID</th><th className="px-3 py-2">Produk</th><th className="px-3 py-2">Order</th><th className="px-3 py-2">Habis</th><th className="px-3 py-2">Jual</th><th className="px-3 py-2">Untung</th><th className="px-3 py-2">Status</th><th className="px-3 py-2"><span className="sr-only">Aksi</span></th></tr></thead><tbody>{history.map(row)}</tbody></table></>}</div>
 
       <div className="card space-y-2"><h2 className="text-sm font-medium">Kelola buyer</h2>
-        {others.length > 0 && <div className="flex flex-wrap items-center gap-2"><select className="inp w-auto max-w-full" aria-label="Gabungkan ke buyer" value={merge} onChange={e => setMerge(e.target.value)}><option value="">Gabungkan ke buyer lain…</option>{others.map(b => <option key={b.id} value={b.id}>{b.name} ({b.whatsapp})</option>)}</select>
+        {others.length > 0 && <div className="flex flex-wrap items-center gap-2"><select className="inp w-auto max-w-full" aria-label="Gabungkan ke buyer" value={merge} onChange={e => setMerge(e.target.value)}><option value="">Gabungkan ke buyer lain…</option>{others.map(b => <option key={b.id} value={b.id}>{contactLine(b)}</option>)}</select>
           <button className="btn-g" disabled={!merge} onClick={() => setConfirmMerge(true)}><GitMerge size={16} />Gabungkan</button></div>}
         <p className="text-xs text-slate-500">Gabungkan dipakai untuk membereskan buyer ganda: semua transaksi {buyer.name} dipindahkan ke buyer tujuan, lalu buyer ini dihapus.</p>
         <button className="btn-g text-red-600" disabled={mine.length > 0} title={mine.length ? 'Buyer masih memiliki transaksi' : ''} onClick={() => setDel(true)}><Trash2 size={16} />Hapus buyer</button></div>

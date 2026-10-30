@@ -43,7 +43,7 @@ export default function Sheets() {
           <b>Cara konflik ditangani.</b>
           <p>Setiap sinkronisasi membandingkan isi transaksi di website, di Sheets, dan versi saat sinkronisasi terakhir. Jika hanya satu sisi yang berubah, perubahan itu dipakai. Jika <u>kedua sisi</u> berubah, versi website dipakai dan versi Sheets disimpan di sheet "Konflik" agar bisa dipulihkan manual.</p>
           <p>Jika ada baris tidak valid di Sheets, sinkronisasi dibatalkan tanpa mengubah data apa pun.</p>
-          <p>Sheet "Buyers": nama, WhatsApp, dan catatan buyer bisa diedit di Sheets (nama baru ikut ke semua transaksi buyer itu). Kolom total order/omzet/modal/untung dan tanggal pertama/terakhir diisi otomatis dari transaksi pada setiap sinkronisasi. Baris dengan nomor yang sudah terdaftar digabung otomatis, bukan dibuat ganda.</p>
+          <p>Sheet "Buyers": nomor WhatsApp, username Telegram, dan catatan buyer bisa diedit di Sheets (perubahan ikut ke semua transaksi buyer itu; kolom "Buyer (otomatis)" diisi sistem). Kolom total order/omzet/modal/untung dan tanggal pertama/terakhir diisi otomatis dari transaksi pada setiap sinkronisasi. Baris dengan nomor yang sudah terdaftar digabung otomatis, bukan dibuat ganda.</p>
         </div>
       </>}
       <div className="card space-y-2"><div className="flex items-center justify-between"><h2 className="text-sm font-medium">Backup & restore</h2>

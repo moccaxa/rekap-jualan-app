@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
-import { buyerStore, newId, txStore, useSettings } from '../lib/store';
+import { buyerStore, newId, txStore, useProducts, useSettings } from '../lib/store';
 import { PLANS, type DurationUnit, type Plan, type Transaction } from '../../shared/types';
 import { calcExpiry, todayJakarta } from '../../shared/dates';
 import { marginPct, profitOf, revenueOf } from '../../shared/finance';
@@ -19,7 +19,7 @@ export default function SaleForm() {
   const { id } = useParams(); const nav = useNavigate(), [qs] = useSearchParams();
   const old = id ? txStore.get(id) : undefined;
   const today = todayJakarta();
-  const { monthOptions: MONTHS, dayOptions: DAYS } = useSettings();
+  const { monthOptions: MONTHS, dayOptions: DAYS } = useSettings(), products = useProducts();
   const [f, setF] = useState(() => ({
     buyerId: old?.buyerId ?? (buyerStore.get(qs.get('buyer') ?? '')?.id ?? ''), product: old?.product ?? '', plan: (old?.plan ?? 'Private') as Plan,
     variation: old?.variation ?? '', durKey: old ? keyOf(old.durationValue, old.durationUnit, MONTHS, DAYS) : 'month:1',
@@ -28,6 +28,8 @@ export default function SaleForm() {
     manualExpiry: old?.expiryManual ?? false, expiryDate: old?.expiryDate ?? '',
     accountEmail: old?.accountEmail ?? '', accountPassword: '',
     sellPrice: String(old?.sellPrice ?? ''), costPrice: String(old?.costPrice ?? ''), quantity: String(old?.quantity ?? 1),
+    prodId: old ? products.find(p => p.name.toLowerCase() === old.product.toLowerCase())?.id ?? '' : '', varPick: '',
+    reminderEnabled: old?.reminderEnabled ?? true, reminderOffsets: old?.reminderOffsets ?? DEFAULT_OFFSETS, reminderDates: old?.reminderDates ?? [], newDate: '',
     supplier: old?.supplier ?? '', notes: old?.notes ?? '', cancelled: old?.cancelled ?? false,
   }));
   const [errs, setErrs] = useState<Record<string, string>>({});
@@ -39,6 +41,9 @@ export default function SaleForm() {
   const start = f.useStart ? f.startDate : f.orderDate;
   const autoExpiry = start ? calcExpiry(start, dv, du) : '';
   const expiry = f.manualExpiry && f.expiryDate ? f.expiryDate : autoExpiry;
+  const prod = products.find(p => p.id === f.prodId);
+  const pickProduct = (id: string) => setF(p => { const x = products.find(q => q.id === id); return x ? { ...p, prodId: id, varPick: '', product: x.name, ...(x.sellPrice ? { sellPrice: String(x.sellPrice) } : {}), ...(x.costPrice ? { costPrice: String(x.costPrice) } : {}) } : { ...p, prodId: '', varPick: '' }; });
+  const pickVariation = (name: string) => setF(p => { const v = prod?.variations.find(x => x.name === name); return v ? { ...p, varPick: name, variation: v.name, sellPrice: String(v.sellPrice), ...(v.costPrice ? { costPrice: String(v.costPrice) } : {}) } : { ...p, varPick: '' }; });
   const nums = { sellPrice: Number(f.sellPrice) || 0, costPrice: Number(f.costPrice) || 0, quantity: Number(f.quantity) || 0 };
 
   async function submit(e: React.FormEvent) {
@@ -54,10 +59,10 @@ export default function SaleForm() {
     if (Object.keys(er).length) return toast('Periksa kembali isian form', 'err');
     const now = new Date().toISOString();
     const t: Transaction = {
-      id: old?.id ?? newId(), buyerId: buyer!.id, buyerName: buyer!.name, whatsapp: buyer!.whatsapp, product: f.product.trim(), plan: f.plan, variation: f.variation.trim(),
+      id: old?.id ?? newId(), buyerId: buyer!.id, buyerName: buyer!.name, whatsapp: buyer!.whatsapp, telegram: buyer!.telegram, product: f.product.trim(), plan: f.plan, variation: f.variation.trim(),
       durationValue: dv, durationUnit: du, orderDate: f.orderDate, startDate: start, expiryDate: expiry, expiryManual: f.manualExpiry && expiry !== autoExpiry,
       accountEmail: f.accountEmail.trim(), accountPassword: pwTouched ? f.accountPassword : undefined, ...nums, supplier: f.supplier.trim(), notes: f.notes.trim(),
-      cancelled: f.cancelled, reminderEnabled: old?.reminderEnabled ?? true, reminderOffsets: old?.reminderOffsets ?? DEFAULT_OFFSETS,
+      cancelled: f.cancelled, reminderEnabled: f.reminderEnabled, reminderOffsets: f.reminderOffsets, reminderDates: f.reminderDates,
       followedUp: old?.followedUp ?? false, createdAt: old?.createdAt ?? now, updatedAt: now, version: (old?.version ?? 0) + 1,
     };
     setSaving(true);
@@ -71,6 +76,8 @@ export default function SaleForm() {
       {id && !old && <div className="card text-sm text-red-600">Transaksi tidak ditemukan.</div>}
       <section className="card grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2"><span className="mb-1 block text-xs font-medium text-slate-600">Buyer *</span><BuyerPicker value={f.buyerId} onChange={v => set('buyerId', v)} error={errs.buyerId} /></div>
+        {products.length > 0 && <Field label="Pilih dari katalog (opsional)"><select className="inp" aria-label="Katalog produk" value={f.prodId} onChange={e => pickProduct(e.target.value)}><option value="">— ketik manual —</option>{products.map(p => <option key={p.id} value={p.id}>{p.name}{p.sellPrice ? ` · ${rupiah(p.sellPrice)}` : ''}</option>)}</select></Field>}
+        {prod && prod.variations.length > 0 && <Field label="Pilih variasi (opsional)"><select className="inp" aria-label="Variasi katalog" value={f.varPick} onChange={e => pickVariation(e.target.value)}><option value="">— ketik manual / tanpa variasi —</option>{prod.variations.map(v => <option key={v.name} value={v.name}>{v.name} · {rupiah(v.sellPrice)}</option>)}</select></Field>}
         <Field label="Nama Produk *" error={errs.product}><input className="inp" value={f.product} onChange={e => set('product', e.target.value)} /></Field>
         <Field label="Plan"><select className="inp" value={f.plan} onChange={e => set('plan', e.target.value as Plan)}>{PLANS.map(p => <option key={p}>{p}</option>)}</select></Field>
         <Field label="Variasi Produk"><input className="inp" value={f.variation} onChange={e => set('variation', e.target.value)} /></Field>
@@ -106,6 +113,17 @@ export default function SaleForm() {
           <div>Keuntungan: <b className={profitOf(nums) < 0 ? 'text-red-600' : 'text-emerald-700'}>{rupiah(profitOf(nums))}</b> · Margin {marginPct(nums).toFixed(1)}%</div></div>
         <div className="sm:col-span-2"><Field label="Catatan"><textarea rows={2} className="inp" value={f.notes} onChange={e => set('notes', e.target.value)} /></Field></div>
         {old && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.cancelled} onChange={e => set('cancelled', e.target.checked)} />Transaksi dibatalkan</label>}
+      </section>
+      <section className="card space-y-3" data-testid="reminder-section">
+        <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" checked={f.reminderEnabled} onChange={e => set('reminderEnabled', e.target.checked)} />Aktifkan reminder untuk transaksi ini</label>
+        {f.reminderEnabled && <>
+          <div><span className="mb-1 block text-xs font-medium text-slate-600">Kirim reminder sebelum masa aktif habis</span>
+            <div className="flex flex-wrap gap-3">{[...new Set([14, 7, 3, 1, 0, ...f.reminderOffsets])].sort((a, b) => b - a).map(o => <label key={o} className="flex items-center gap-1 text-sm"><input type="checkbox" checked={f.reminderOffsets.includes(o)} onChange={e => set('reminderOffsets', e.target.checked ? [...f.reminderOffsets, o] : f.reminderOffsets.filter(x => x !== o))} />{o === 0 ? 'Hari H' : `H-${o}`}</label>)}</div></div>
+          <div><span className="mb-1 block text-xs font-medium text-slate-600">Pilih tanggal reminder khusus (opsional)</span>
+            <div className="flex gap-2"><input type="date" aria-label="Tanggal reminder khusus" className="inp" value={f.newDate} onChange={e => set('newDate', e.target.value)} />
+              <button type="button" className="btn-g shrink-0" onClick={() => { if (!f.newDate) return toast('Pilih tanggal dulu', 'err'); if (f.reminderDates.includes(f.newDate)) return toast('Tanggal sudah ada', 'err'); setF(p => ({ ...p, reminderDates: [...p.reminderDates, p.newDate].sort(), newDate: '' })); }}>Tambah tanggal</button></div>
+            {f.reminderDates.length > 0 && <div className="mt-2 flex flex-wrap gap-2" data-testid="reminder-dates">{f.reminderDates.map(d => <span key={d} className="flex items-center gap-1 rounded-full bg-brand-50 px-3 py-1 text-sm text-brand-700">{tgl(d)}<button type="button" aria-label={`Hapus ${d}`} onClick={() => set('reminderDates', f.reminderDates.filter(x => x !== d))}>×</button></span>)}</div>}</div>
+          <p className="text-xs text-slate-500">Pesan reminder dikirim ke Telegram pada tanggal-tanggal ini (jam kirim diatur di halaman Integrasi Telegram). Tanggal khusus selalu dikirim; jadwal H-n hanya yang dipilih di pengaturan Telegram.</p></>}
       </section>
       <p className="text-xs text-slate-500">Password akun dienkripsi di server sebelum disimpan dan tidak ikut dikirim ke Telegram maupun CSV.</p>
       <div className="flex gap-2"><button className="btn-p" type="submit" disabled={saving}>{saving ? 'Menyimpan…' : 'Simpan'}</button><button type="button" className="btn-g" onClick={() => nav(-1)}>Batal</button></div>

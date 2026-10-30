@@ -5,7 +5,7 @@ import { appendRows, ensureSheets, readTable, SHEETS, writeTable } from './googl
 import { genId } from './http';
 import { HEADER, BUYER_HEADER, buyerToRow, hashBuyer, hashTx, rowsToBuyers, rowsToTx, txToRow } from './sheetmap';
 import { HttpError } from './http';
-import { computeStats, dedupeByPhone, ensureBuyerLinks, reviveReferenced, syncSnapshots } from '../../../shared/buyers';
+import { computeStats, dedupeByContact, ensureBuyerLinks, reviveReferenced, syncSnapshots } from '../../../shared/buyers';
 import { todayJakarta } from '../../../shared/dates';
 import { mergeSync, type SyncStats } from '../../../shared/sync';
 import type { Buyer, SyncMeta } from '../../../shared/types';
@@ -37,7 +37,7 @@ export async function runSync(action: SyncAction): Promise<SyncMeta> {
       } else { mergedTx = ptx.items; mergedBuyers = pb.items; stats = { toSheet: 0, toWeb: mergedTx.length + mergedBuyers.length, conflicts: 0, unchanged: 0 }; }
       // konsistensi: hubungkan transaksi baru ke buyer (berdasarkan nomor), gabungkan buyer ber-nomor sama, selaraskan salinan nama/nomor
       const l = ensureBuyerLinks(mergedTx, mergedBuyers, now, makeIdGen(mergedBuyers)); mergedTx = l.txs;
-      const d = dedupeByPhone(l.buyers, mergedTx, now); mergedTx = d.txs;
+      const d = dedupeByContact(l.buyers, mergedTx, now); mergedTx = d.txs;
       mergedBuyers = reviveReferenced(d.buyers, mergedTx, now); mergedTx = syncSnapshots(mergedTx, mergedBuyers, now);
       if (stats.toWeb > 0 || JSON.stringify(mergedTx) !== JSON.stringify(webTx) || JSON.stringify(mergedBuyers) !== JSON.stringify(webBuyers)) await db.backup('auto-sebelum-sync');
       await db.setBuyers(mergedBuyers); await db.setTx(mergedTx);

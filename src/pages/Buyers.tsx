@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Download, History, MessageCircle, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { Download, History, MessageCircle, Pencil, Plus, Search, Send, Trash2, Upload } from 'lucide-react';
+import { contactLine, telegramLink } from '../../shared/contact';
 import BuyerInsights from '../components/BuyerInsights';
 import BuyerModal from '../components/BuyerModal';
 import PeriodFilter from '../components/PeriodFilter';
@@ -25,7 +26,7 @@ export default function Buyers() {
 
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase(), d = q.replace(/\D/g, ''), dp = d.startsWith('0') ? '62' + d.slice(1) : d;
-    const r = stats.filter(x => (!periodOn || x.orders > 0) && (!status || x.status === status) && (!s || x.buyer.name.toLowerCase().includes(s) || (d.length >= 3 && x.buyer.whatsapp.includes(dp))));
+    const r = stats.filter(x => (!periodOn || x.orders > 0) && (!status || x.status === status) && (!s || x.buyer.name.toLowerCase().includes(s) || x.buyer.telegram.includes(s.replace(/^@/, '')) || (d.length >= 3 && x.buyer.whatsapp.includes(dp))));
     const val = (x: BuyerStat): string | number => sort === 'name' ? x.buyer.name.toLowerCase() : sort === 'last' ? x.lastOrder ?? '' : x[sort];
     return r.sort((a, b) => (val(a) > val(b) ? 1 : val(a) < val(b) ? -1 : 0) * dir || a.buyer.id.localeCompare(b.buyer.id));
   }, [stats, q, status, sort, dir, periodOn]);
@@ -35,7 +36,7 @@ export default function Buyers() {
 
   const actions = (b: Buyer) => (
     <div className="flex gap-1"><Link title="Detail & riwayat transaksi" aria-label="Riwayat transaksi" className="btn-g px-2" to={`/buyer/${b.id}`}><History size={14} /></Link>
-      <a title="WhatsApp" className="btn-g px-2" href={waLink(b.whatsapp)} target="_blank" rel="noreferrer"><MessageCircle size={14} /></a>
+      {b.whatsapp && <a title="WhatsApp" className="btn-g px-2" href={waLink(b.whatsapp)} target="_blank" rel="noreferrer"><MessageCircle size={14} /></a>}{b.telegram && <a title="Telegram" aria-label="Telegram" className="btn-g px-2" href={telegramLink(b.telegram)} target="_blank" rel="noreferrer"><Send size={14} /></a>}
       <button title="Edit buyer" className="btn-g px-2" onClick={() => setModal({ edit: b })}><Pencil size={14} /></button>
       <button title="Hapus buyer" className="btn-g px-2 text-red-600" onClick={() => setDel(b)}><Trash2 size={14} /></button></div>);
 
@@ -62,7 +63,7 @@ export default function Buyers() {
       <div className="card space-y-3">
         <h2 className="text-sm font-medium">Database buyer</h2>
         <div className="flex flex-wrap gap-2"><div className="relative min-w-[200px] flex-1"><Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
-          <input className="inp pl-9" placeholder="Cari nama atau nomor WhatsApp" aria-label="Cari buyer" value={q} onChange={e => { setQ(e.target.value); setPage(1); }} /></div>
+          <input className="inp pl-9" placeholder="Cari nomor WhatsApp atau @Telegram" aria-label="Cari buyer" value={q} onChange={e => { setQ(e.target.value); setPage(1); }} /></div>
           <select className="inp w-auto" aria-label="Status buyer" value={status} onChange={e => { setStatus(e.target.value as BuyerStatus | ''); setPage(1); }}><option value="">Semua status</option><option>Baru</option><option>Aktif</option><option>Tidak Aktif</option></select></div>
         {periodOn && <p className="text-xs text-slate-500">Menampilkan buyer yang bertransaksi pada periode terpilih. Total order, omzet, modal, dan untung dihitung pada periode tersebut; tanggal pertama/terakhir order selalu semua waktu.</p>}
       </div>
@@ -71,13 +72,13 @@ export default function Buyers() {
         {view.length === 0 ? <Empty text={buyers.length ? 'Tidak ada buyer yang cocok.' : 'Belum ada buyer. Tambahkan buyer atau buat transaksi baru.'} /> : <>
           <div className="divide-y md:hidden">{view.map(s => (
             <div key={s.buyer.id} className="space-y-2 p-4"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><Link to={`/buyer/${s.buyer.id}`} className="font-medium text-brand-700 hover:underline">{s.buyer.name}</Link>
-              <div className="text-xs text-slate-500">{s.buyer.whatsapp} · {s.buyer.id}</div></div><BuyerStatusBadge s={s.status} /></div>
+              <div className="text-xs text-slate-500">{contactLine(s.buyer) === s.buyer.name ? '' : contactLine(s.buyer) + ' · '}{s.buyer.id}</div></div><BuyerStatusBadge s={s.status} /></div>
               <div className="grid grid-cols-2 gap-1 text-xs text-slate-600"><span>Order{suffix}: {s.orders}</span><span>Terakhir: {tgl(s.lastOrder ?? '')}</span><span>Omzet: {rupiah(s.revenue)}</span><span>Untung: {rupiah(s.profit)}</span></div>
               {s.buyer.notes && <p className="truncate text-xs text-slate-500">Catatan: {s.buyer.notes}</p>}{actions(s.buyer)}</div>))}</div>
-          <table className="hidden w-full text-left text-[13px] md:table"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-2 py-2">ID Buyer</th>{th('name', 'Nama / WhatsApp')}{th('last', 'Order pertama / terakhir')}
+          <table className="hidden w-full text-left text-[13px] md:table"><thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-2 py-2">ID Buyer</th>{th('name', 'Buyer (WhatsApp / Telegram)')}{th('last', 'Order pertama / terakhir')}
             {th('orders', 'Order' + suffix)}{th('revenue', 'Omzet' + suffix)}<th className="px-2 py-2">Modal{suffix}</th>{th('profit', 'Untung' + suffix)}<th className="px-2 py-2">Status</th><th className="px-2 py-2">Catatan</th><th className="px-2 py-2">Aksi</th></tr></thead>
             <tbody>{view.map(s => <tr key={s.buyer.id} className="border-t align-top"><td className="px-2 py-2 font-mono text-[11px]">{s.buyer.id}</td>
-              <td className="px-2 py-2"><Link to={`/buyer/${s.buyer.id}`} className="font-medium text-brand-700 hover:underline">{s.buyer.name}</Link><div className="text-xs text-slate-500">{s.buyer.whatsapp}</div></td>
+              <td className="px-2 py-2"><Link to={`/buyer/${s.buyer.id}`} className="font-medium text-brand-700 hover:underline">{s.buyer.name}</Link>{s.buyer.whatsapp && s.buyer.telegram && <div className="text-xs text-slate-500">@{s.buyer.telegram}</div>}</td>
               <td className="whitespace-nowrap px-2 py-2 text-xs"><div>{tgl(s.firstOrder ?? '')}</div><div className="text-slate-500">{tgl(s.lastOrder ?? '')}</div></td><td className="px-2 py-2 font-medium">{s.orders}</td>
               <td className="whitespace-nowrap px-2 py-2">{rupiah(s.revenue)}</td><td className="whitespace-nowrap px-2 py-2">{rupiah(s.cost)}</td><td className="whitespace-nowrap px-2 py-2 font-medium">{rupiah(s.profit)}</td>
               <td className="px-2 py-2"><BuyerStatusBadge s={s.status} /></td><td className="max-w-[120px] truncate px-2 py-2 text-xs text-slate-500" title={s.buyer.notes}>{s.buyer.notes || '-'}</td><td className="px-2 py-2">{actions(s.buyer)}</td></tr>)}</tbody></table></>}

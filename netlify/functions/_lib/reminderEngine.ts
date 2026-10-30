@@ -3,7 +3,7 @@ import { db } from './db';
 import { sendMessage, TelegramError } from './telegram';
 import { hourJakarta, todayJakarta } from '../../../shared/dates';
 import { buildReminderMessage } from '../../../shared/message';
-import { dedupeKey, reminderSchedule } from '../../../shared/reminders';
+import { fullSchedule } from '../../../shared/reminders';
 import type { ReminderLog, ReminderRunInfo } from '../../../shared/types';
 
 const MAX_ATTEMPTS = 3, BUDGET_MS = 20_000;
@@ -32,13 +32,17 @@ export async function runReminders(opts: { now?: Date } = {}): Promise<ReminderR
     const latest = new Map<string, ReminderLog>(), fails = new Map<string, number>();
     for (const l of logs) { latest.set(l.key, l); if (l.status === 'Gagal') fails.set(l.key, (fails.get(l.key) ?? 0) + 1); }
 
+    // satu pesan per transaksi per hari: bila sudah terkirim/ditindaklanjuti hari ini, jadwal lain di hari yang sama dilewati
+    const sentToday = new Set(logs.filter(l => l.sendDate === today && (l.status === 'Terkirim' || l.status === 'Ditindaklanjuti') && !l.key.startsWith('test:')).map(l => l.txId));
     const due: { t: (typeof txs)[number]; offset: number; key: string }[] = [];
     for (const t of txs) {
       if (t.deletedAt || t.cancelled || !t.reminderEnabled) continue;
-      for (const s of reminderSchedule(t)) {
-        if (s.date !== today || !tg.offsets.includes(s.offset)) continue;
-        const key = dedupeKey(t.id, s.offset, s.date), st = latest.get(key);
-        if (st?.status === 'Terkirim' || st?.status === 'Ditindaklanjuti') { info.skipped++; continue; }
+      // tanggal khusus pilihan pengguna selalu dikirim; jadwal H-n hanya bila offsetnya dipilih di pengaturan global Telegram
+      const todays = fullSchedule(t).filter(i => i.date === today);
+      const pick = todays.find(i => i.kind === 'date') ?? todays.find(i => tg.offsets.includes(i.offset));
+      for (const s of pick ? [pick] : []) {
+        if (sentToday.has(t.id)) { info.skipped++; continue; }
+        const key = s.key, st = latest.get(key);
         if (st?.status === 'Terjadwal') { // sisa dari proses yang terhenti: hasil tidak diketahui → jangan kirim ulang
           await append({ key, txId: t.id, offset: s.offset, sendDate: s.date, status: 'Gagal', at: now.toISOString(), channel: 'telegram', detail: 'Tidak diketahui: proses sebelumnya terhenti saat mengirim. Cek Telegram; jika belum masuk, kirim manual lewat tombol "Kirim tes".' });
           info.failed++; continue;

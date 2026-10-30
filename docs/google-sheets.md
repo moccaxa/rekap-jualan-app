@@ -10,9 +10,9 @@
 8. Isi ketiga variabel di Netlify (atau `.env` lokal), deploy ulang, lalu buka halaman **Google Sheets** di aplikasi → **Hubungkan & siapkan sheet**.
 
 ## Sheet "Buyers"
-Kolom: ID Buyer, Nama Buyer, Nomor WhatsApp, Tanggal Pertama Order, Tanggal Terakhir Order, Total Order, Total Omzet, Total Modal, Total Keuntungan, Catatan (+ Dibuat, Diubah, Versi, Dihapus).
-- Yang boleh diedit: **Nama Buyer, Nomor WhatsApp, Catatan** (nama baru ikut ke semua transaksi buyer itu). Kolom tanggal pertama/terakhir dan total diisi ulang otomatis dari transaksi setiap sinkronisasi; jika Anda mengubahnya, nilainya akan ditimpa.
-- Baris buyer baru: isi nama dan nomor; ID boleh kosong. Jika nomornya sudah terdaftar, baris itu **digabung** ke buyer yang ada (tidak dibuat ganda).
+Kolom: ID Buyer, Buyer (otomatis), Nomor WhatsApp, Telegram, Tanggal Pertama Order, Tanggal Terakhir Order, Total Order, Total Omzet, Total Modal, Total Keuntungan, Catatan (+ Dibuat, Diubah, Versi, Dihapus).
+- Yang boleh diedit: **Nomor WhatsApp, Telegram, Catatan** (perubahan ikut ke semua transaksi buyer itu). Kolom "Buyer (otomatis)" diisi sistem dari kontak. Kolom tanggal pertama/terakhir dan total diisi ulang otomatis dari transaksi setiap sinkronisasi; jika Anda mengubahnya, nilainya akan ditimpa.
+- Baris buyer baru: isi WhatsApp dan/atau Telegram; ID boleh kosong. Jika kontaknya sudah terdaftar, baris itu **digabung** ke buyer yang ada (tidak dibuat ganda).
 - Baris buyer yang dihapus dari sheet atau diberi tanggal di kolom "Dihapus" tidak akan terhapus selama buyer itu masih punya transaksi.
 - Di sheet Transaksi, kolom "ID Buyer" boleh dikosongkan pada baris baru: transaksi dihubungkan ke buyer dengan nomor WhatsApp yang sama (atau dibuatkan buyer baru). Nama/nomor pada transaksi selalu mengikuti data buyer.
 

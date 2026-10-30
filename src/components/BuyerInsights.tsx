@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { rankByOrders, rankByRevenue, type BuyerStat, type Range } from '../../shared/buyers';
 import { useBuyerStats } from '../lib/buyerStats';
 import { rupiah, tgl } from '../lib/format';
+import { contactLine } from '../../shared/contact';
 import { Empty, RankBadge } from './ui';
 
 const Card = ({ label, value, sub }: { label: string; value: string | number; sub?: string }) =>
@@ -13,12 +14,12 @@ function Table({ title, rows, id, showWa }: { title: string; rows: BuyerStat[]; 
   return (
     <div className="card overflow-x-auto p-0" data-testid={id}><h3 className="px-4 pt-3 text-sm font-medium">{title}</h3>
       {rows.length === 0 ? <Empty text="Belum ada order pada periode ini." /> :
-        <table className="w-full text-left text-sm"><thead className="text-xs text-slate-500"><tr><th className="px-3 py-2">#</th><th className="px-3 py-2">Buyer</th>{showWa && <th className="hidden px-3 py-2 md:table-cell">WhatsApp</th>}
+        <table className="w-full text-left text-sm"><thead className="text-xs text-slate-500"><tr><th className="px-3 py-2">#</th><th className="px-3 py-2">Buyer</th>{showWa && <th className="hidden px-3 py-2 md:table-cell">Kontak</th>}
           <th className="px-3 py-2">Order</th><th className="px-3 py-2">Omzet</th><th className="hidden px-3 py-2 sm:table-cell">Untung</th>{showWa && <th className="hidden px-3 py-2 lg:table-cell">Terakhir order</th>}<th className="px-3 py-2"><span className="sr-only">Detail</span></th></tr></thead>
           <tbody>{rows.map((s, i) => <tr key={s.buyer.id} className="border-t">
             <td className="px-3 py-2"><RankBadge n={i + 1} /></td>
             <td className="px-3 py-2"><Link to={`/buyer/${s.buyer.id}`} className="font-medium text-brand-700 hover:underline">{s.buyer.name}</Link></td>
-            {showWa && <td className="hidden px-3 py-2 text-xs text-slate-600 md:table-cell">{s.buyer.whatsapp}</td>}
+            {showWa && <td className="hidden px-3 py-2 text-xs text-slate-600 md:table-cell">{contactLine(s.buyer)}</td>}
             <td className="px-3 py-2 font-medium">{s.orders}</td><td className="whitespace-nowrap px-3 py-2">{rupiah(s.revenue)}</td><td className="hidden whitespace-nowrap px-3 py-2 sm:table-cell">{rupiah(s.profit)}</td>
             {showWa && <td className="hidden whitespace-nowrap px-3 py-2 lg:table-cell">{tgl(s.lastOrder ?? '')}</td>}
             <td className="px-3 py-2"><Link to={`/buyer/${s.buyer.id}`} className="btn-g px-2 py-1 text-xs">Detail</Link></td></tr>)}</tbody></table>}

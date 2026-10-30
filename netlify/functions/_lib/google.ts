@@ -56,13 +56,13 @@ const HEADERS: Record<string, string[]> = {
 export async function ensureSheets(heads: { tx: string[]; buyers: string[] }) {
   const have = new Set((await props()).map(p => p.title));
   const titles = Object.values(SHEETS).filter(t => !have.has(t));
-  if (titles.length) await g('POST', ':batchUpdate', { requests: titles.map(title => ({ addSheet: { properties: { title, gridProperties: { rowCount: 1000, columnCount: 30, frozenRowCount: 1 } } } })) });
+  if (titles.length) await g('POST', ':batchUpdate', { requests: titles.map(title => ({ addSheet: { properties: { title, gridProperties: { rowCount: 1000, columnCount: 40, frozenRowCount: 1 } } } })) });
   const all = await props();
   const textSheets = [SHEETS.tx, SHEETS.buyers].filter(t => titles.includes(t)); // kolom teks agar tanggal/nomor yang diketik tidak diubah otomatis oleh Sheets
   if (textSheets.length) await g('POST', ':batchUpdate', { requests: textSheets.map(t => ({ repeatCell: { range: { sheetId: all.find(p => p.title === t)!.sheetId }, cell: { userEnteredFormat: { numberFormat: { type: 'TEXT' } } }, fields: 'userEnteredFormat.numberFormat' } })) });
   for (const [title, head] of [[SHEETS.tx, heads.tx], [SHEETS.buyers, heads.buyers], ...Object.entries(HEADERS)] as [string, string[]][]) {
     const first = await g<{ values?: string[][] }>('GET', `/values/${rng(title, 'A1:A1')}`);
-    if (!first.values?.length) await g('PUT', `/values/${rng(title, 'A1')}?valueInputOption=RAW`, { values: [head] });
+    if (!first.values?.length) await writeTable(title, [head]); // writeTable memperluas grid bila kolom lebih banyak dari sheet lama
   }
 }
 export async function readTable(title: string): Promise<string[][]> {

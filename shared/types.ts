@@ -1,10 +1,10 @@
-export type Plan = 'Private' | 'Sharing' | 'Indplan' | 'Famplan' | 'Member' | 'Designer';
-export const PLANS: Plan[] = ['Private', 'Sharing', 'Indplan', 'Famplan', 'Member', 'Designer'];
+export type Plan = 'Private' | 'Sharing' | 'Indplan' | 'Famplan' | 'Member' | 'Designer' | 'Zoom';
+export const PLANS: Plan[] = ['Private', 'Sharing', 'Indplan', 'Famplan', 'Member', 'Designer', 'Zoom'];
 export type DurationUnit = 'month' | 'day';
 export type Status = 'Aktif' | 'Akan Habis' | 'Habis Hari Ini' | 'Sudah Habis' | 'Dibatalkan';
 
 export interface Transaction {
-  id: string; buyerId: string; buyerName: string; whatsapp: string; product: string; plan: Plan; variation: string;
+  id: string; buyerId: string; buyerName: string; whatsapp: string; telegram: string; product: string; plan: Plan; variation: string;
   durationValue: number; durationUnit: DurationUnit;
   orderDate: string; startDate: string; expiryDate: string; expiryManual: boolean;
   accountEmail: string;
@@ -12,7 +12,7 @@ export interface Transaction {
   accountPassword?: string;
   hasPassword?: boolean;
   sellPrice: number; costPrice: number; quantity: number; supplier: string; notes: string;
-  cancelled: boolean; reminderEnabled: boolean; reminderOffsets: number[]; followedUp: boolean;
+  cancelled: boolean; reminderEnabled: boolean; reminderOffsets: number[]; reminderDates: string[]; followedUp: boolean;
   createdAt: string; updatedAt: string; version: number; deletedAt?: string;
 }
 
@@ -35,6 +35,10 @@ export interface TelegramSettings { enabled: boolean; chatId: string; sendHour: 
 export const DEFAULT_TELEGRAM: TelegramSettings = { enabled: false, chatId: '', sendHour: 8, offsets: [14, 7, 3, 1, 0] };
 export interface ReminderRunInfo { at: string; sent: number; failed: number; skipped: number; notes: string[]; error?: string }
 
-/** Buyer hanya menyimpan identitas. Statistik (order, omzet, modal, untung, tanggal pertama/terakhir, status) SELALU dihitung dari transaksi: lihat shared/buyers.ts. */
-export interface Buyer { id: string; name: string; whatsapp: string; notes: string; createdAt: string; updatedAt: string; version: number; deletedAt?: string }
+/** `name` = label otomatis (nomor WhatsApp, atau @username Telegram bila tanpa WhatsApp); tidak diisi pengguna. Buyer hanya menyimpan identitas. Statistik (order, omzet, modal, untung, tanggal pertama/terakhir, status) SELALU dihitung dari transaksi: lihat shared/buyers.ts. */
+export interface Buyer { id: string; name: string; whatsapp: string; telegram: string; notes: string; createdAt: string; updatedAt: string; version: number; deletedAt?: string }
 export type BuyerStatus = 'Baru' | 'Aktif' | 'Tidak Aktif';
+
+export interface ProductVariation { name: string; sellPrice: number; costPrice: number }
+/** Katalog produk: harga bawaan (jual & modal opsional) dan variasi beserta harganya. Dipakai sebagai pengisi otomatis di form transaksi (boleh diabaikan). */
+export interface Product { id: string; name: string; sellPrice: number; costPrice: number; variations: ProductVariation[]; createdAt: string; updatedAt: string; version: number }
