@@ -47,7 +47,12 @@ Status dihitung saat ditampilkan dari tanggal habis (zona Asia/Jakarta): Aktif, 
 
 - **Katalog produk** (menu Produk & Durasi): produk dengan harga jual, harga modal (opsional), dan variasi beserta harganya. Di form transaksi pilihan katalog **opsional**: memilih produk/variasi mengisi nama dan harga otomatis, tetapi semua isian tetap bisa diketik manual. Katalog disimpan di server dan ikut backup; katalog belum disinkronkan ke Google Sheets.
 - **Plan:** Private, Sharing, Indplan, Famplan, Member, Designer, **Zoom**.
+- **Catatan reminder:** kolom catatan di bagian Reminder (form transaksi dan halaman Reminder, maks 500 karakter) ikut dikirim ke Telegram sebagai baris `Catatan reminder: …` di setiap pesan reminder transaksi itu. Kolom ini terpisah dari "Catatan" transaksi biasa, dan ikut tersimpan di CSV dan Google Sheets (kolom "Catatan Reminder").
 - **Tanggal reminder khusus:** di form transaksi dan halaman Reminder Anda dapat memilih satu atau lebih tanggal. Pada tanggal itu server mengirim pesan ke Telegram (setelah jam kirim yang diatur), tanpa melihat daftar offset global, dan tidak bergeser bila tanggal habis diubah. Maksimal satu pesan per transaksi per hari.
+
+## Tampilan terang / gelap
+
+Pilih **Terang**, **Gelap**, atau **Ikuti sistem** lewat ikon di sidebar (atau di header pada HP, dan di halaman login), atau di menu **Pengaturan → Tampilan**. Pilihan tersimpan di browser perangkat itu saja (bukan di server) dan dipasang sebelum halaman digambar lewat `public/theme.js`, sehingga tidak ada kedipan putih. Warna teks sudah diperiksa otomatis terhadap standar kontras WCAG AA pada kedua tema.
 
 ## Struktur proyek
 
